@@ -1,18 +1,13 @@
 package me.rof_playervault.listener;
 
 import me.rof_playervault.ROF_PlayerVault;
-import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.UUID;
+import java.sql.SQLException;
 
 public class CloseVault implements Listener {
     private final ROF_PlayerVault plugin;
@@ -22,18 +17,19 @@ public class CloseVault implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
         Player player = (Player) e.getPlayer();
-        UUID playerUUID = player.getUniqueId();
-        if (e.getView().getTitle().equalsIgnoreCase("ROF Vault")) {
-            File playerFile = new File(plugin.dataFolder, playerUUID.toString() + ".yml");
-            FileConfiguration playerConfig = YamlConfiguration.loadConfiguration(playerFile);
-
-            // Save the player's vault contents to their file
-            playerConfig.set("vault", player.getOpenInventory().getTopInventory().getContents());
-
+        PlayerInventory inventory = player.getInventory();
+        if (e.getView().getTitle().contains("ROF Vault")) {
             try {
-                playerConfig.save(playerFile);
-            } catch (IOException error) {
-                error.printStackTrace();
+                String[] number = e.getView().getTitle().split("#");
+                if(number.length > 2) {
+                    String page = number[1].trim();
+                    plugin.getVaultDatabase().updateVaults(player, inventory, Integer.parseInt(page));
+                }
+                else {
+                    plugin.getVaultDatabase().updateVaults(player, inventory, 1);
+                }
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex);
             }
         }
     }
