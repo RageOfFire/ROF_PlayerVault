@@ -24,11 +24,16 @@ public class OpenVault implements CommandExecutor {
             return true;
         }
         Player player = (Player) commandSender;
-        // empty arguments
+        // No permission
+        if(!commandSender.hasPermission("rofvault.use")) {
+            commandSender.sendMessage("You don't have permission to use this");
+            return true;
+        }
+        // Empty arguments
         if (strings.length == 0) {
             Inventory vault = Bukkit.createInventory(player, 54, "ROF Vault - #1");
             try {
-                if (plugin.getVaultDatabase().playerExists(player)) {
+                if (plugin.getVaultDatabase().playerExists(player, 1)) {
                     ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(player, 1);
                     vault.setContents(vaultContent);
                 }
@@ -36,12 +41,17 @@ public class OpenVault implements CommandExecutor {
                 throw new RuntimeException(e);
             }
             player.openInventory(vault);
+            return true;
         }
         // arguments exist and it's number
-        if((isNumeric.isInteger(strings[0]))) {
+        else if((isNumeric.isInteger(strings[0]))) {
+            if(!commandSender.hasPermission("rofvault.slot." + strings[0])) {
+                commandSender.sendMessage("You don't have enough permission to use this vault");
+                return true;
+            }
             Inventory vault = Bukkit.createInventory(player, 54, "ROF Vault - #" + strings[0]);
             try {
-                if (plugin.getVaultDatabase().playerExists(player)) {
+                if (plugin.getVaultDatabase().playerExists(player, Integer.parseInt(strings[0]))) {
                     ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(player, Integer.parseInt(strings[0]));
                     vault.setContents(vaultContent);
                 }
@@ -49,6 +59,7 @@ public class OpenVault implements CommandExecutor {
                 throw new RuntimeException(e);
             }
             player.openInventory(vault);
+            return true;
         }
         return true;
     }
