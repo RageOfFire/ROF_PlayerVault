@@ -79,4 +79,18 @@ public class VaultDatabase {
             throw new RuntimeException(e);
         }
     }
+
+    public void deleteVaults(Player player, int page) throws SQLException{
+
+        //if the player doesn't exist, nothing happen
+        if (!playerExists(player, page)){
+            return;
+        }
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement("DELETE from playervaults WHERE uuid = ? AND pages = ?")) {
+            preparedStatement.setString(1, player.getUniqueId().toString());
+            preparedStatement.setInt(2, page);
+            preparedStatement.executeUpdate();
+        }
+    }
 }

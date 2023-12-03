@@ -18,17 +18,16 @@ public class CloseVault implements Listener {
     }
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent e) {
+        // Messages
+        String vault_title = plugin.getConfig().getString("vault-title");
         Player player = (Player) e.getPlayer();
         ItemStack[] inventory = e.getInventory().getContents();
-        if (e.getView().getTitle().contains("ROF Vault")) {
+        if (e.getView().getTitle().contains(vault_title)) {
             try {
                 String[] number = e.getView().getTitle().split("\\#");
                 if(number.length > 1) {
                     String page = number[1].trim();
                     plugin.getVaultDatabase().updateVaults(player, inventory, Integer.parseInt(page));
-                }
-                else {
-                    plugin.getVaultDatabase().updateVaults(player, inventory, 1);
                 }
             } catch (SQLException ex) {
                 throw new RuntimeException(ex);

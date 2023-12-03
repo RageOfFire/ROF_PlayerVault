@@ -13,6 +13,12 @@ permission:
   rofvault.admin:
     description: Permission for admin user plugin
     default: op
+    children:
+      rofvault.admin.reload: true
+      rofvault.admin.delete: true
+      rofvault.admin.view: true
+      rofvault.admin.edit: true
+      rofvault.use: true
   rofvault.use:
     description: Permission for open vault
-    default: op
+    default: false
