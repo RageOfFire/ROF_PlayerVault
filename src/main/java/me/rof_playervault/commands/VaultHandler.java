@@ -1,6 +1,7 @@
 package me.rof_playervault.commands;
 
 import me.rof_playervault.ROF_PlayerVault;
+import me.rof_playervault.utils.FuctionHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -14,8 +15,10 @@ import java.sql.SQLException;
 
 public class VaultHandler implements CommandExecutor {
     private final ROF_PlayerVault plugin;
+    private final FuctionHandler fuctionHandler;
     public VaultHandler(ROF_PlayerVault plugin) {
         this.plugin = plugin;
+        this.fuctionHandler = new FuctionHandler(plugin);
     }
     @Override
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
@@ -31,6 +34,7 @@ public class VaultHandler implements CommandExecutor {
         String vault_title = plugin.getConfig().getString("vault-title");
         String reload_message = plugin.getConfig().getString("messages.command-reload");
         String no_permission_message = plugin.getConfig().getString("messages.no-permission");
+        String usage_main = plugin.getConfig().getString("messages.usage-main");
 
         // No permission
         if(!commandSender.hasPermission("rofvault.use")) {
@@ -53,24 +57,30 @@ public class VaultHandler implements CommandExecutor {
             return true;
         }
 
-        // Message with placeholder
-        Player target = plugin.getFuctionHandler().checkPlayer(strings[1]);
-        int page = Integer.parseInt(strings[2]);
-        String delete_message = plugin.getConfig().getString("messages.command-delete")
-                .replace("%player%", target.getName())
-                .replace("%number%", String.valueOf(page));
-
         // arguments exist and it's number
-        if((plugin.getFuctionHandler().isInteger(strings[0]))) {
+        if(fuctionHandler.isInteger(strings[0])) {
             // Define number
             int vaultNumber = Integer.parseInt(strings[0]);
-            int permissionStorage = plugin.getFuctionHandler().getAmount(player);
+            int permissionStorage = fuctionHandler.getAmount(player);
+            Inventory vault = Bukkit.createInventory(player, 54, vault_title + " - #" + strings[0]);
+            // vault number 1 is valid
+            if(vaultNumber == 1) {
+                try {
+                    if (plugin.getVaultDatabase().playerExists(player, vaultNumber)) {
+                        ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(player, vaultNumber);
+                        vault.setContents(vaultContent);
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+                player.openInventory(vault);
+                return true;
+            }
             // Check if player have permission to use that vault or not
             if(vaultNumber > permissionStorage) {
                 commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
                 return true;
             }
-            Inventory vault = Bukkit.createInventory(player, 54, vault_title + " - #" + strings[0]);
             try {
                 if (plugin.getVaultDatabase().playerExists(player, vaultNumber)) {
                     ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(player, vaultNumber);
@@ -82,49 +92,58 @@ public class VaultHandler implements CommandExecutor {
             player.openInventory(vault);
             return true;
         }
-
-        // Start command usage admin
-        switch (strings[0]) {
-            case "reload":
-                if(commandSender.hasPermission("rofvault.admin.reload")) {
-                    plugin.reloadConfig();
-                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', reload_message));
-                }
-                else {
-                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
-                }
-                break;
-            case "delete":
-                if(commandSender.hasPermission("rofvault.admin.delete")) {
-                    try {
-                        plugin.getVaultDatabase().deleteVaults(target, page);
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
+        else {
+            // Message with placeholder
+            Player target = fuctionHandler.checkPlayer(strings[1]);
+            int page = Integer.parseInt(strings[2]);
+            String delete_message = plugin.getConfig().getString("messages.command-delete")
+                    .replace("%player%", target.getName())
+                    .replace("%number%", String.valueOf(page));
+            // Start command usage admin
+            switch (strings[0]) {
+                case "reload":
+                    if(commandSender.hasPermission("rofvault.admin.reload")) {
+                        plugin.reloadConfig();
+                        commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', reload_message));
                     }
-                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', delete_message));
-                }
-                else {
-                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
-                }
-                break;
-            case "open":
-                if(commandSender.hasPermission("rofvault.admin.view") || commandSender.hasPermission("rofvault.admin.edit")) {
-                    Inventory vault = Bukkit.createInventory(target, 54, target.getDisplayName() + "- "+ vault_title +" - #" + strings[0]);
-                    try {
-                        if (plugin.getVaultDatabase().playerExists(target, page)) {
-                            ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(target, page);
-                            vault.setContents(vaultContent);
+                    else {
+                        commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
+                    }
+                    break;
+                case "delete":
+                    if(commandSender.hasPermission("rofvault.admin.delete")) {
+                        try {
+                            plugin.getVaultDatabase().deleteVaults(target, page);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
                         }
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
+                        commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', delete_message));
                     }
-                    player.openInventory(vault);
+                    else {
+                        commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
+                    }
+                    break;
+                case "open":
+                    if(commandSender.hasPermission("rofvault.admin.view") || commandSender.hasPermission("rofvault.admin.edit")) {
+                        Inventory vault = Bukkit.createInventory(target, 54, target.getDisplayName() + " - "+ vault_title +" - #" + strings[2]);
+                        try {
+                            if (plugin.getVaultDatabase().playerExists(target, page)) {
+                                ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(target, page);
+                                vault.setContents(vaultContent);
+                            }
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                        player.openInventory(vault);
 //                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', reload_message));
-                }
-                else {
-                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
-                }
-                break;
+                    }
+                    else {
+                        commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));
+                    }
+                    break;
+                default:
+                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', usage_main));
+            }
         }
         return true;
     }

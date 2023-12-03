@@ -1,0 +1,15 @@
+#####################################################
+#               ROF_PlayerVault                     #
+#               by RageOfFire                       #
+#####################################################
+
+vault-title: 'ROF Vault'
+
+#####################################################
+#               Message                             #
+#####################################################
+messages:
+  command-reload: '&aSuccessfully reloaded ROF_PlayerVault plugin!'
+  command-delete: '&aSuccessfully delete %player% vault %number% !'
+  no-permission: '&cYour don''t have permission to do that.'
+  usage-main: '&cUsage: /rofvault <command>'

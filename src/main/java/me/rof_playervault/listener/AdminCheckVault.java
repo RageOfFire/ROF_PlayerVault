@@ -22,11 +22,7 @@ public class AdminCheckVault implements Listener {
         Player player = (Player) e.getWhoClicked();
         ItemStack[] inventory = e.getInventory().getContents();
         if (e.getView().getTitle().contains("- " + vault_title)) {
-            if(player.hasPermission("rofvault.admin.view")) {
-                e.setCancelled(true);
-                player.sendMessage("You don't have enough permission to edit another vault");
-            }
-            else if (player.hasPermission("rofvault.admin.edit")) {
+            if (player.hasPermission("rofvault.admin.edit")) {
                 try {
                     String[] number = e.getView().getTitle().split("\\#");
                     if(number.length > 1) {
@@ -36,6 +32,10 @@ public class AdminCheckVault implements Listener {
                 } catch (SQLException ex) {
                     throw new RuntimeException(ex);
                 }
+            }
+            else {
+                e.setCancelled(true);
+//                player.sendMessage("You don't have enough permission to edit another vault");
             }
         }
     }

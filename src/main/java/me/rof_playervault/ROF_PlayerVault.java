@@ -14,6 +14,8 @@ public final class ROF_PlayerVault extends JavaPlugin {
     private FuctionHandler fuctionHandler;
     @Override
     public void onEnable() {
+        //
+        fuctionHandler = new FuctionHandler(this);
         if (!getDataFolder().exists()) {
             getDataFolder().mkdirs();
         }
@@ -52,8 +54,5 @@ public final class ROF_PlayerVault extends JavaPlugin {
     }
     public VaultDatabase getVaultDatabase() {
         return vaultDatabase;
-    }
-    public FuctionHandler getFuctionHandler() {
-        return fuctionHandler;
     }
 }
