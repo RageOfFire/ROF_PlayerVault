@@ -1,6 +1,7 @@
 package me.rof_playervault.commands;
 
 import me.rof_playervault.ROF_PlayerVault;
+import me.rof_playervault.database.VaultHolder;
 import me.rof_playervault.utils.FuctionHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -44,7 +45,7 @@ public class VaultHandler implements CommandExecutor {
 
         // Empty arguments
         if (strings.length == 0) {
-            Inventory vault = Bukkit.createInventory(player, 54, vault_title + " - #1");
+            Inventory vault = Bukkit.createInventory(new VaultHolder(), 54, vault_title + " - #1");
             try {
                 if (plugin.getVaultDatabase().playerExists(player, 1)) {
                     ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(player, 1);
@@ -62,7 +63,7 @@ public class VaultHandler implements CommandExecutor {
             // Define number
             int vaultNumber = Integer.parseInt(strings[0]);
             int permissionStorage = fuctionHandler.getAmount(player);
-            Inventory vault = Bukkit.createInventory(player, 54, vault_title + " - #" + strings[0]);
+            Inventory vault = Bukkit.createInventory(new VaultHolder(), 54, vault_title + " - #" + strings[0]);
             // vault number 1 is valid
             if(vaultNumber == 1) {
                 try {
@@ -104,6 +105,7 @@ public class VaultHandler implements CommandExecutor {
                 case "reload":
                     if(commandSender.hasPermission("rofvault.admin.reload")) {
                         plugin.reloadConfig();
+                        plugin.loadConfiguration();
                         commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', reload_message));
                     }
                     else {
@@ -125,17 +127,16 @@ public class VaultHandler implements CommandExecutor {
                     break;
                 case "open":
                     if(commandSender.hasPermission("rofvault.admin.view") || commandSender.hasPermission("rofvault.admin.edit")) {
-                        Inventory vault = Bukkit.createInventory(target, 54, target.getDisplayName() + " - "+ vault_title +" - #" + strings[2]);
+                        Inventory vaultadmin = Bukkit.createInventory(new VaultHolder(), 54, target.getDisplayName() + " - "+ vault_title + " - #" + strings[2]);
                         try {
                             if (plugin.getVaultDatabase().playerExists(target, page)) {
                                 ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(target, page);
-                                vault.setContents(vaultContent);
+                                vaultadmin.setContents(vaultContent);
                             }
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
-                        player.openInventory(vault);
-//                    commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', reload_message));
+                        player.openInventory(vaultadmin);
                     }
                     else {
                         commandSender.sendMessage(ChatColor.translateAlternateColorCodes('&', no_permission_message));

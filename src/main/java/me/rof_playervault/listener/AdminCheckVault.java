@@ -1,11 +1,12 @@
 package me.rof_playervault.listener;
 
 import me.rof_playervault.ROF_PlayerVault;
+import me.rof_playervault.database.VaultHolder;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.sql.SQLException;
@@ -17,11 +18,10 @@ public class AdminCheckVault implements Listener {
     }
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
-        // Messages
-        String vault_title = plugin.getConfig().getString("vault-title");
         Player player = (Player) e.getWhoClicked();
         ItemStack[] inventory = e.getInventory().getContents();
-        if (e.getView().getTitle().contains("- " + vault_title)) {
+        InventoryHolder inventoryHolder = e.getInventory().getHolder();
+        if (inventoryHolder instanceof VaultHolder) {
             if (player.hasPermission("rofvault.admin.edit")) {
                 try {
                     String[] number = e.getView().getTitle().split("\\#");

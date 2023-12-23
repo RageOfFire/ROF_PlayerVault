@@ -13,3 +13,11 @@ messages:
   command-delete: '&aSuccessfully delete %player% vault %number% !'
   no-permission: '&cYour don''t have permission to do that.'
   usage-main: '&cUsage: /rofvault <command>'
+
+#####################################################
+#               Options                             #
+#####################################################
+# Let vault pickup item when player inventory is full
+vault-pickup: false
+# List item not allow to place in vault
+blacklist-items: []

@@ -14,7 +14,7 @@ public class FuctionHandler {
         String permission;
 
         if(player.hasPermission(permissionPrefix + "*")) {
-            return -1;
+            return 9999;
         }
 
         for (PermissionAttachmentInfo attachmentInfo : player.getEffectivePermissions()) {
