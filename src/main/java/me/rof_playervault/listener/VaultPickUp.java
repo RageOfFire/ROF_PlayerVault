@@ -53,9 +53,12 @@ public class VaultPickUp implements Listener {
                             if(amountAdd < item.getAmount()) {
                                 ItemStack remainItems = item.clone();
                                 remainItems.setAmount(item.getAmount() - amountAdd);
+                                // Cancel the event to prevent picking up the item
+                                e.setCancelled(true);
+                                e.getItem().remove();
                                 player.getWorld().dropItem(player.getLocation(), remainItems);
+                                break;
                             }
-                            break;
                         }
                     }
                 }

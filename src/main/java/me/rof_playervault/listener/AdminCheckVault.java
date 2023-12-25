@@ -35,7 +35,6 @@ public class AdminCheckVault implements Listener {
             }
             else {
                 e.setCancelled(true);
-//                player.sendMessage("You don't have enough permission to edit another vault");
             }
         }
     }

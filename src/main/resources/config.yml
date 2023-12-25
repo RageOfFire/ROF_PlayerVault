@@ -3,12 +3,15 @@
 #               by RageOfFire                       #
 #####################################################
 
+# vault name
 vault-title: 'ROF Vault'
 
 #####################################################
 #               Message                             #
 #####################################################
 messages:
+  prefix: "&f[&6ROF_PlayerVault&f]"
+  only-player: "&cOnly player can execute this command"
   command-reload: '&aSuccessfully reloaded ROF_PlayerVault plugin!'
   command-delete: '&aSuccessfully delete %player% vault %number% !'
   no-permission: '&cYour don''t have permission to do that.'
