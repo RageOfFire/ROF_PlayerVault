@@ -4,13 +4,15 @@ import com.tchristofferson.configupdater.ConfigUpdater;
 import me.rof_playervault.commands.VaultHandler;
 import me.rof_playervault.commands.VaultTabComplete;
 import me.rof_playervault.database.VaultDatabase;
-import me.rof_playervault.listener.AdminCheckVault;
-import me.rof_playervault.listener.BlacklistItems;
-import me.rof_playervault.listener.CloseVault;
-import me.rof_playervault.listener.VaultPickUp;
+import me.rof_playervault.database.VaultHolder;
+import me.rof_playervault.listener.*;
+import me.rof_playervault.runnables.VaultPickUp;
 import me.rof_playervault.utils.FuctionHandler;
 import org.bstats.bukkit.Metrics;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -23,14 +25,13 @@ import java.util.Set;
 
 public final class ROF_PlayerVault extends JavaPlugin {
     private VaultDatabase vaultDatabase;
-    private FuctionHandler fuctionHandler;
     private final Set<Material> blacklistItems = new HashSet<>();
     @Override
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public void onEnable() {
         int pluginId = 20551;
         new Metrics(this, pluginId);
-        fuctionHandler = new FuctionHandler(this);
+        new FuctionHandler(this);
         if (!getDataFolder().exists()) {
             getDataFolder().mkdirs();
         }
@@ -55,16 +56,35 @@ public final class ROF_PlayerVault extends JavaPlugin {
         // Listener
         getServer().getPluginManager().registerEvents(new CloseVault(this), this);
         getServer().getPluginManager().registerEvents(new AdminCheckVault(this), this);
-        getServer().getPluginManager().registerEvents(new VaultPickUp(this), this);
         getServer().getPluginManager().registerEvents(new BlacklistItems(this), this);
         // Commands
         getCommand("rofvault").setExecutor(new VaultHandler(this));
         getCommand("rofvault").setTabCompleter(new VaultTabComplete());
+        // Scheduler
+        if(getConfig().getBoolean("vault-pickup.enable")) {
+            new VaultPickUp(this).runTaskTimer(this, 0, getConfig().getLong("vault-pickup.interval") * 20);
+        }
     }
 
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        // Handle server shutdown
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            InventoryHolder inventoryHolder = player.getInventory().getHolder();
+            if (inventoryHolder instanceof VaultHolder) {
+                try {
+                    String[] number = player.getOpenInventory().getTopInventory().getTitle().split("\\#");
+                    if(number.length > 1) {
+                        String page = number[1].trim();
+                        getVaultDatabase().updateVaults(player, player.getOpenInventory().getTopInventory().getContents(), Integer.parseInt(page));
+                    }
+                } catch (SQLException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+        // Close connection
         try {
             vaultDatabase.closeConnection();
         } catch (SQLException e) {
