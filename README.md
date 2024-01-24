@@ -12,7 +12,7 @@
 
 ## Getting started
 
-Download plugin from [here](https://www.spigotmc.org/resources/rof_antivpn.111408/)
+Download plugin from [here](https://www.spigotmc.org/resources/rof_playervault.114665/)
 
 Take a look at my [wiki](https://github.com/RageOfFire/ROF_PlayerVault/wiki) to know what to do next
 
