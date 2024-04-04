@@ -1,7 +1,7 @@
 package me.rof_playervault.listener;
 
 import me.rof_playervault.ROF_PlayerVault;
-import me.rof_playervault.database.VaultHolder;
+import me.rof_playervault.database.AdminVaultHolder;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -21,7 +21,7 @@ public class AdminCheckVault implements Listener {
         Player player = (Player) e.getWhoClicked();
         ItemStack[] inventory = e.getInventory().getContents();
         InventoryHolder inventoryHolder = e.getInventory().getHolder();
-        if (inventoryHolder instanceof VaultHolder) {
+        if (inventoryHolder instanceof AdminVaultHolder) {
             if (player.hasPermission("rofvault.admin.edit")) {
                 try {
                     String[] number = e.getView().getTitle().split("\\#");

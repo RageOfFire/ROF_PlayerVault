@@ -1,6 +1,7 @@
 package me.rof_playervault.commands;
 
 import me.rof_playervault.ROF_PlayerVault;
+import me.rof_playervault.database.AdminVaultHolder;
 import me.rof_playervault.database.VaultHolder;
 import me.rof_playervault.utils.FuctionHandler;
 import org.bukkit.Bukkit;
@@ -146,7 +147,7 @@ public class VaultHandler implements CommandExecutor {
                     target = fuctionHandler.checkPlayer(strings[1]);
                     page = Integer.parseInt(strings[2]);
                     if(commandSender.hasPermission("rofvault.admin.view") || commandSender.hasPermission("rofvault.admin.edit")) {
-                        Inventory vaultadmin = Bukkit.createInventory(new VaultHolder(), 54, target.getDisplayName() + " - "+ vault_title + " - #" + strings[2]);
+                        Inventory vaultadmin = Bukkit.createInventory(new AdminVaultHolder(), 54, target.getDisplayName() + " - "+ vault_title + " - #" + strings[2]);
                         try {
                             if (plugin.getVaultDatabase().playerExists(target, page)) {
                                 ItemStack[] vaultContent = plugin.getVaultDatabase().getVaults(target, page);
