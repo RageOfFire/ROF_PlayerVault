@@ -1,0 +1,87 @@
+name: ROF_PlayerVault
+version: '${project.version}'
+main: me.rageoffire.rofplayervault.ROFPlayerVault
+api-version: "1.13"
+description: A Minecraft plugin to store player items inside a virtual inventory
+author: RageOfFire
+website: https://github.com/RageOfFire/ROF_PlayerVault
+
+softdepend:
+  - Vault
+  - PlaceholderAPI
+
+commands:
+  rofvault:
+    description: Main ROF_PlayerVault command
+    usage: /rofvault <command>
+    aliases:
+      - vault
+      - pv
+
+permissions:
+  rofvault.use:
+    description: Allow player to use vault
+    default: true
+
+  rofvault.list:
+    description: Allow player to list their accessible vaults
+    default: true
+
+  # rofvault.storage.X — grant access to vault number X
+  # e.g. rofvault.storage.1, rofvault.storage.2 ...
+  rofvault.storage.1:
+    description: Allow player to use vault number 1
+    default: true
+  rofvault.storage.2:
+    description: Allow player to use vault number 2
+    default: op
+  rofvault.storage.3:
+    description: Allow player to use vault number 3
+    default: op
+
+  # rofvault.size.X — vault opens with X rows (1-6)
+  # Highest matching permission wins
+  rofvault.size.1:
+    description: Vault opens with 1 row (9 slots)
+    default: false
+  rofvault.size.2:
+    description: Vault opens with 2 rows (18 slots)
+    default: false
+  rofvault.size.3:
+    description: Vault opens with 3 rows (27 slots)
+    default: true
+  rofvault.size.4:
+    description: Vault opens with 4 rows (36 slots)
+    default: false
+  rofvault.size.5:
+    description: Vault opens with 5 rows (45 slots)
+    default: false
+  rofvault.size.6:
+    description: Vault opens with 6 rows (54 slots) — double chest
+    default: op
+
+  rofvault.admin:
+    description: Grants all admin permissions
+    default: op
+    children:
+      rofvault.admin.reload: true
+      rofvault.admin.delete: true
+      rofvault.admin.view: true
+      rofvault.admin.edit: true
+      rofvault.admin.open: true
+
+  rofvault.admin.reload:
+    description: Permission to reload the plugin
+    default: op
+  rofvault.admin.delete:
+    description: Permission to delete any player's vault
+    default: op
+  rofvault.admin.view:
+    description: Permission to view any player's vault (read-only)
+    default: op
+  rofvault.admin.edit:
+    description: Permission to edit any player's vault
+    default: op
+  rofvault.admin.open:
+    description: Permission to open a specific vault for another player
+    default: op

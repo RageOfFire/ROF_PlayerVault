@@ -1,0 +1,166 @@
+#####################################################
+#               ROF_PlayerVault                     #
+#               by RageOfFire                       #
+#               Version 2.0.0                       #
+#####################################################
+
+# ─────────────────────────────────────────────────
+#  GENERAL
+# ─────────────────────────────────────────────────
+
+# Display name shown in vault inventory title
+vault-title: '&6ROF Vault &f#%number%'
+
+# Maximum vault number any player can ever access.
+# Players still need individual rofvault.storage.X permissions.
+max-vaults: 10
+
+# ─────────────────────────────────────────────────
+#  VAULT SIZE
+# ─────────────────────────────────────────────────
+# Per-vault row overrides (1–6 rows).
+# Permission nodes (rofvault.size.X) set a player's
+# DEFAULT row count.  Entries here override it for a
+# specific vault number regardless of permission.
+# If a vault number is NOT listed below the player's
+# permission-based size is used (or default-rows).
+vault-size:
+  # Fallback when no rofvault.size.X permission matches
+  default-rows: 3
+  # Per-vault overrides  (comment out to use permission-based size)
+  per-vault:
+    # 1: 3
+    # 2: 4
+    # 3: 6
+
+# ─────────────────────────────────────────────────
+#  STORAGE BACKEND
+# ─────────────────────────────────────────────────
+# Choose: FILE or MYSQL
+storage:
+  type: FILE    # FILE | MYSQL
+
+  # MySQL settings (only used when type: MYSQL)
+  mysql:
+    host: localhost
+    port: 3306
+    database: minecraft
+    username: root
+    password: password
+    # Connection pool size
+    pool-size: 5
+    # Table prefix
+    table-prefix: rofvault_
+    # Extra JDBC options appended to connection URL
+    properties: "useSSL=false&autoReconnect=true&characterEncoding=utf8"
+
+# ─────────────────────────────────────────────────
+#  AUTO-PICKUP
+# ─────────────────────────────────────────────────
+# When enabled the plugin scans items around a player
+# and moves them into vault #1 (or the first vault the
+# player has access to) when their inventory is full.
+# REQUIRES server restart to change enable/interval.
+vault-pickup:
+  enable: false
+  # Target vault number for auto-collected items
+  target-vault: 1
+  # Seconds between each scan
+  interval: 3
+  # Block radius to scan around the player
+  radius: 3
+  # mode: WHITELIST → only listed items are picked up
+  #        BLACKLIST → all items except listed are picked up
+  mode: BLACKLIST
+  # Items to whitelist or blacklist.
+  # Full material list: https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Material.html
+  items: []
+  # Example whitelist (collect only diamonds and emeralds):
+  # mode: WHITELIST
+  # items:
+  #   - DIAMOND
+  #   - EMERALD
+
+# ─────────────────────────────────────────────────
+#  BLACKLIST (items never allowed inside any vault)
+# ─────────────────────────────────────────────────
+blacklist-items: []
+# Example — block shulker boxes:
+# blacklist-items:
+#   - SHULKER_BOX
+#   - WHITE_SHULKER_BOX
+
+# ─────────────────────────────────────────────────
+#  VAULT OPEN SOUND & ANIMATION
+# ─────────────────────────────────────────────────
+vault-open:
+  # Sound played to the player when they open a vault.
+  # Full sound list: https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Sound.html
+  # Set to '' to disable.
+  sound: BLOCK_CHEST_OPEN
+  # Volume (0.0 – 1.0) and pitch (0.5 – 2.0)
+  volume: 1.0
+  pitch: 1.0
+  # Show a title/subtitle message when the vault opens?
+  show-title: false
+  title: '&6ROF Vault &f#%number%'
+  subtitle: '&7Your personal storage'
+  # Title fade in / stay / fade out in ticks (20 ticks = 1 second)
+  title-fade-in: 10
+  title-stay: 40
+  title-fade-out: 10
+
+# ─────────────────────────────────────────────────
+#  ECONOMY (requires Vault + an economy plugin)
+# ─────────────────────────────────────────────────
+economy:
+  enable: false
+  # Cost to OPEN each vault number.
+  # Vault numbers not listed cost 0.
+  cost-per-open:
+    # 1: 0
+    # 2: 100
+    # 3: 500
+  # If true, players with rofvault.admin bypass the cost check
+  admin-bypass: true
+
+# ─────────────────────────────────────────────────
+#  VAULT DELETION BEHAVIOUR
+# ─────────────────────────────────────────────────
+# What to do with items when an admin deletes a vault.
+# Options:
+#   DROP    – drop all items at the player's last known location (or world spawn)
+#   CLEAR   – silently delete all items (old behaviour)
+delete-action: DROP
+
+# ─────────────────────────────────────────────────
+#  MESSAGES
+# ─────────────────────────────────────────────────
+messages:
+  prefix: "&f[&6ROF_PlayerVault&f] "
+  only-player: "&cOnly a player can execute this command."
+  command-reload: "&aPlugin reloaded successfully!"
+  no-permission: "&cYou don't have permission to do that."
+  usage-main: "&cUsage: /rofvault <open|list|delete|reload>"
+  usage-open: "&cUsage: /rofvault open <player> [vault#]"
+  usage-delete: "&cUsage: /rofvault delete <player> [vault#]"
+
+  vault-opened: "&aOpened vault &6#%number%&a."
+  vault-list: "&aYour vaults: &6%vaults%"
+  vault-list-empty: "&cYou don't have access to any vaults."
+
+  vault-deleted: "&aVault &6#%number% &aof &6%player% &adeleted successfully!"
+  vault-deleted-items-dropped: "&aItems from the deleted vault were dropped at their last location."
+  vault-not-found: "&cVault &6#%number% &cdoes not exist or is empty."
+  vault-no-access: "&cYou don't have access to vault &6#%number%&c."
+
+  blacklisted-item: "&cThis item is blacklisted and cannot be placed in a vault."
+
+  economy-insufficient: "&cYou need &6%cost% &cto open vault &6#%number%&c."
+  economy-charged: "&aCharged &6%cost% &ato open vault &6#%number%&a."
+
+  player-not-found: "&cPlayer &6%player% &cwas not found."
+  invalid-vault-number: "&cInvalid vault number. Must be between 1 and %max%."
+
+  admin-viewing: "&e[Admin] Viewing vault &6#%number% &eof &6%player%&e."
+  admin-editing: "&e[Admin] Editing vault &6#%number% &eof &6%player%&e."
