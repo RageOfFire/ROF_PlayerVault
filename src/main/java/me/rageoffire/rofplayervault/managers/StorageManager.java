@@ -71,7 +71,7 @@ public class StorageManager {
                 + "/" + cfg.getMySQLDatabase() + "?" + cfg.getMySQLProps();
 
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
+            // mysql-connector-j 9.x auto-registers via ServiceLoader — no Class.forName needed
             int poolSize = cfg.getMySQLPoolSize();
             for (int i = 0; i < poolSize; i++) {
                 Connection conn = DriverManager.getConnection(url, cfg.getMySQLUser(), cfg.getMySQLPass());
