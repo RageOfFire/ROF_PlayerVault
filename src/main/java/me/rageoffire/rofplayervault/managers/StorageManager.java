@@ -331,17 +331,22 @@ public class StorageManager {
 
     // ── Connection pool ───────────────────────────────────────────────────────
 
-    private Connection borrowConnection() throws InterruptedException, SQLException {
-        Connection conn = connectionQueue.poll(5, TimeUnit.SECONDS);
-        if (conn == null) throw new SQLException("Connection pool timeout");
-        // Reconnect if stale
-        if (!conn.isValid(2)) {
-            ConfigManager cfg = plugin.getConfigManager();
-            String url = "jdbc:mysql://" + cfg.getMySQLHost() + ":" + cfg.getMySQLPort()
-                    + "/" + cfg.getMySQLDatabase() + "?" + cfg.getMySQLProps();
-            conn = DriverManager.getConnection(url, cfg.getMySQLUser(), cfg.getMySQLPass());
+    private Connection borrowConnection() throws SQLException {
+        try {
+            Connection conn = connectionQueue.poll(5, TimeUnit.SECONDS);
+            if (conn == null) throw new SQLException("Connection pool timeout");
+            // Reconnect if stale
+            if (!conn.isValid(2)) {
+                ConfigManager cfg = plugin.getConfigManager();
+                String url = "jdbc:mysql://" + cfg.getMySQLHost() + ":" + cfg.getMySQLPort()
+                        + "/" + cfg.getMySQLDatabase() + "?" + cfg.getMySQLProps();
+                conn = DriverManager.getConnection(url, cfg.getMySQLUser(), cfg.getMySQLPass());
+            }
+            return conn;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // restore interrupt flag
+            throw new SQLException("Connection pool interrupted", e);
         }
-        return conn;
     }
 
     private void releaseConnection(Connection conn) {
