@@ -4,8 +4,6 @@ import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import me.rageoffire.rofplayervault.ROFPlayerVault;
 import me.rageoffire.rofplayervault.managers.VaultManager;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -33,19 +31,19 @@ public class VaultPlaceholders extends PlaceholderExpansion {
     }
 
     @Override
-    public @NotNull String getIdentifier() { return "rofvault"; }
+    public String getIdentifier() { return "rofvault"; }
 
     @Override
-    public @NotNull String getAuthor()     { return "RageOfFire"; }
+    public String getAuthor()     { return "RageOfFire"; }
 
     @Override
-    public @NotNull String getVersion()    { return plugin.getDescription().getVersion(); }
+    public String getVersion()    { return plugin.getDescription().getVersion(); }
 
     @Override
     public boolean persist() { return true; }   // keep registered across PAPI reloads
 
     @Override
-    public @Nullable String onPlaceholderRequest(Player player, @NotNull String params) {
+    public String onPlaceholderRequest(Player player, String params) {
         if (player == null) return "";
 
         // %rofvault_count%
