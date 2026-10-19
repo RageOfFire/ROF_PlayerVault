@@ -2,7 +2,7 @@ package me.rageoffire.rofplayervault;
 
 import me.rageoffire.rofplayervault.commands.VaultCommand;
 import me.rageoffire.rofplayervault.listeners.InventoryListener;
-import me.rageoffire.rofplayervault.listeners.PickupListener;
+import me.rageoffire.rofplayervault.listeners.PickupListenerFactory;
 import me.rageoffire.rofplayervault.managers.ConfigManager;
 import me.rageoffire.rofplayervault.managers.EconomyManager;
 import me.rageoffire.rofplayervault.managers.StorageManager;
@@ -53,7 +53,7 @@ public class ROFPlayerVault extends JavaPlugin {
 
         // Auto-pickup listener (only register if feature is enabled)
         if (configManager.isPickupEnabled()) {
-            Bukkit.getPluginManager().registerEvents(new PickupListener(this), this);
+            PickupListenerFactory.register(this);
             startPickupTask();
         }
 
