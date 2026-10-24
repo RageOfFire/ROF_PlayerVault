@@ -1,10 +1,11 @@
 package me.rageoffire.rofplayervault.managers;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import me.rageoffire.rofplayervault.ROFPlayerVault;
 import me.rageoffire.rofplayervault.utils.ItemSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.*;
 import java.sql.*;
@@ -17,8 +18,12 @@ import java.util.logging.Level;
  * Handles all async reading and writing of vault data.
  *
  * Backend is chosen via config:
- *   type: FILE  – one YML-like file per player UUID under /plugins/ROF_PlayerVault/vaults/
- *   type: MYSQL – single table per vault slot; connection pool maintained here
+ *   type: FILE  – one binary file per player UUID under /plugins/ROF_PlayerVault/vaults/
+ *   type: MYSQL – HikariCP connection pool; MySQL driver must be on the server classpath
+ *                 (Spigot/Paper 1.16+ bundles it; older servers need the jar in /libs/)
+ *
+ * All public methods are async — they submit work to a single-threaded executor
+ * and invoke the callback on the main thread when done.
  */
 public class StorageManager {
 
@@ -28,12 +33,11 @@ public class StorageManager {
     // FILE backend
     private File vaultsFolder;
 
-    // MYSQL backend
-    private final List<Connection> pool = new ArrayList<>();
-    private final BlockingQueue<Connection> connectionQueue = new LinkedBlockingQueue<>();
+    // MYSQL backend — HikariCP manages the connection pool
+    private HikariDataSource dataSource;
     private String tablePrefix;
 
-    // Shared async executor (single thread keeps I/O serial)
+    // Single background thread for all I/O — keeps operations serial and off the main thread
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "ROFVault-IO");
         t.setDaemon(true);
@@ -48,18 +52,12 @@ public class StorageManager {
     // ── Init ──────────────────────────────────────────────────────────────────
 
     public boolean init() {
-        if (storageType.equals("MYSQL")) {
-            return initMySQL();
-        } else {
-            return initFile();
-        }
+        return storageType.equals("MYSQL") ? initMySQL() : initFile();
     }
 
     private boolean initFile() {
         vaultsFolder = new File(plugin.getDataFolder(), "vaults");
-        if (!vaultsFolder.exists()) {
-            vaultsFolder.mkdirs();
-        }
+        if (!vaultsFolder.exists()) vaultsFolder.mkdirs();
         plugin.getLogger().info("Storage backend: FILE (" + vaultsFolder.getPath() + ")");
         return true;
     }
@@ -67,19 +65,29 @@ public class StorageManager {
     private boolean initMySQL() {
         ConfigManager cfg = plugin.getConfigManager();
         tablePrefix = cfg.getMySQLPrefix();
-        String url = "jdbc:mysql://" + cfg.getMySQLHost() + ":" + cfg.getMySQLPort()
-                + "/" + cfg.getMySQLDatabase() + "?" + cfg.getMySQLProps();
 
         try {
-            // mysql-connector-j 9.x auto-registers via ServiceLoader — no Class.forName needed
-            int poolSize = cfg.getMySQLPoolSize();
-            for (int i = 0; i < poolSize; i++) {
-                Connection conn = DriverManager.getConnection(url, cfg.getMySQLUser(), cfg.getMySQLPass());
-                pool.add(conn);
-                connectionQueue.add(conn);
-            }
+            HikariConfig hikari = new HikariConfig();
+            hikari.setJdbcUrl("jdbc:mysql://" + cfg.getMySQLHost() + ":" + cfg.getMySQLPort()
+                    + "/" + cfg.getMySQLDatabase() + "?" + cfg.getMySQLProps());
+            hikari.setUsername(cfg.getMySQLUser());
+            hikari.setPassword(cfg.getMySQLPass());
+            hikari.setMaximumPoolSize(cfg.getMySQLPoolSize());
+            hikari.setMinimumIdle(1);
+            hikari.setConnectionTimeout(10_000);
+            hikari.setIdleTimeout(600_000);
+            hikari.setMaxLifetime(1_800_000);
+            hikari.setPoolName("ROFVault-Pool");
+
+            // Recommended settings for MySQL
+            hikari.addDataSourceProperty("cachePrepStmts",          "true");
+            hikari.addDataSourceProperty("prepStmtCacheSize",        "250");
+            hikari.addDataSourceProperty("prepStmtCacheSqlLimit",    "2048");
+            hikari.addDataSourceProperty("useServerPrepStmts",       "true");
+
+            dataSource = new HikariDataSource(hikari);
             createMySQLTable();
-            plugin.getLogger().info("Storage backend: MYSQL (pool size " + poolSize + ")");
+            plugin.getLogger().info("Storage backend: MYSQL (pool size " + cfg.getMySQLPoolSize() + ")");
             return true;
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to connect to MySQL: " + e.getMessage(), e);
@@ -88,7 +96,7 @@ public class StorageManager {
     }
 
     private void createMySQLTable() throws SQLException {
-        try (Connection conn = borrowConnection();
+        try (Connection conn = dataSource.getConnection();
              Statement st = conn.createStatement()) {
             st.executeUpdate(
                 "CREATE TABLE IF NOT EXISTS `" + tablePrefix + "vaults` (" +
@@ -99,17 +107,11 @@ public class StorageManager {
                 "  PRIMARY KEY (`uuid`, `vault_number`, `slot`)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
             );
-        } finally {
-            // borrowConnection returns directly from pool – no release needed here
         }
     }
 
     // ── Public async API ──────────────────────────────────────────────────────
 
-    /**
-     * Asynchronously load a vault.  Calls {@code callback} on the main thread
-     * with the loaded ItemStack array (null slots = empty).
-     */
     public void loadVaultAsync(UUID uuid, int vaultNumber, int size, Consumer<ItemStack[]> callback) {
         executor.submit(() -> {
             ItemStack[] items;
@@ -126,29 +128,18 @@ public class StorageManager {
         });
     }
 
-    /**
-     * Asynchronously save a vault.  Fire-and-forget; errors are logged.
-     */
     public void saveVaultAsync(UUID uuid, int vaultNumber, ItemStack[] contents) {
-        // Copy the array so the live inventory can be modified freely
         final ItemStack[] snapshot = Arrays.copyOf(contents, contents.length);
         executor.submit(() -> {
             try {
-                if (storageType.equals("MYSQL")) {
-                    saveToMySQL(uuid, vaultNumber, snapshot);
-                } else {
-                    saveToFile(uuid, vaultNumber, snapshot);
-                }
+                if (storageType.equals("MYSQL")) saveToMySQL(uuid, vaultNumber, snapshot);
+                else                              saveToFile(uuid, vaultNumber, snapshot);
             } catch (Exception e) {
                 plugin.getLogger().log(Level.SEVERE, "Error saving vault " + vaultNumber + " for " + uuid, e);
             }
         });
     }
 
-    /**
-     * Asynchronously delete all vaults for a player, returning all items
-     * found so the caller can drop/mail them on the main thread.
-     */
     public void deleteVaultAsync(UUID uuid, int vaultNumber, Consumer<ItemStack[]> callback) {
         executor.submit(() -> {
             ItemStack[] items;
@@ -165,17 +156,11 @@ public class StorageManager {
         });
     }
 
-    /**
-     * Synchronous save used only during onDisable (server is shutting down,
-     * the async executor may be interrupted).
-     */
+    /** Synchronous save used only during onDisable. */
     public void saveVaultSync(UUID uuid, int vaultNumber, ItemStack[] contents) {
         try {
-            if (storageType.equals("MYSQL")) {
-                saveToMySQL(uuid, vaultNumber, contents);
-            } else {
-                saveToFile(uuid, vaultNumber, contents);
-            }
+            if (storageType.equals("MYSQL")) saveToMySQL(uuid, vaultNumber, contents);
+            else                              saveToFile(uuid, vaultNumber, contents);
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Error saving vault " + vaultNumber + " for " + uuid + " on shutdown", e);
         }
@@ -209,15 +194,12 @@ public class StorageManager {
     @SuppressWarnings("unchecked")
     private void saveToFile(UUID uuid, int vaultNumber, ItemStack[] contents) throws Exception {
         File file = playerFile(uuid);
-
-        // Read existing data first so we don't overwrite other vaults
         Map<Integer, Map<Integer, byte[]>> data = new HashMap<>();
         if (file.exists()) {
             try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
                 data = (Map<Integer, Map<Integer, byte[]>>) ois.readObject();
             }
         }
-
         Map<Integer, byte[]> vaultData = new HashMap<>();
         for (int i = 0; i < contents.length; i++) {
             if (contents[i] != null) {
@@ -225,7 +207,6 @@ public class StorageManager {
             }
         }
         data.put(vaultNumber, vaultData);
-
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
             oos.writeObject(data);
         }
@@ -240,17 +221,14 @@ public class StorageManager {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
             data = (Map<Integer, Map<Integer, byte[]>>) ois.readObject();
         }
-
         Map<Integer, byte[]> vaultData = data.remove(vaultNumber);
         if (vaultData == null) return new ItemStack[0];
 
-        // Collect items before deleting
         List<ItemStack> items = new ArrayList<>();
         for (byte[] bytes : vaultData.values()) {
             ItemStack item = ItemSerializer.deserialize(bytes);
             if (item != null) items.add(item);
         }
-
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
             oos.writeObject(data);
         }
@@ -260,97 +238,59 @@ public class StorageManager {
     // ── MYSQL implementation ──────────────────────────────────────────────────
 
     private ItemStack[] loadFromMySQL(UUID uuid, int vaultNumber, int size) throws Exception {
-        Connection conn = borrowConnection();
-        try {
-            String sql = "SELECT `slot`, `item_data` FROM `" + tablePrefix + "vaults` " +
-                         "WHERE `uuid` = ? AND `vault_number` = ?";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, uuid.toString());
-                ps.setInt(2, vaultNumber);
-                ResultSet rs = ps.executeQuery();
-                ItemStack[] result = new ItemStack[size];
-                while (rs.next()) {
-                    int slot = rs.getInt("slot");
-                    String data = rs.getString("item_data");
-                    if (slot >= 0 && slot < size && data != null && !data.isEmpty()) {
-                        result[slot] = ItemSerializer.deserializeBase64(data);
-                    }
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                "SELECT `slot`, `item_data` FROM `" + tablePrefix + "vaults` " +
+                "WHERE `uuid` = ? AND `vault_number` = ?")) {
+            ps.setString(1, uuid.toString());
+            ps.setInt(2, vaultNumber);
+            ResultSet rs = ps.executeQuery();
+            ItemStack[] result = new ItemStack[size];
+            while (rs.next()) {
+                int slot    = rs.getInt("slot");
+                String data = rs.getString("item_data");
+                if (slot >= 0 && slot < size && data != null && !data.isEmpty()) {
+                    result[slot] = ItemSerializer.deserializeBase64(data);
                 }
-                return result;
             }
-        } finally {
-            releaseConnection(conn);
+            return result;
         }
     }
 
     private void saveToMySQL(UUID uuid, int vaultNumber, ItemStack[] contents) throws Exception {
-        Connection conn = borrowConnection();
-        try {
-            // Delete existing rows for this vault, then re-insert
-            String del = "DELETE FROM `" + tablePrefix + "vaults` WHERE `uuid` = ? AND `vault_number` = ?";
-            try (PreparedStatement ps = conn.prepareStatement(del)) {
-                ps.setString(1, uuid.toString());
-                ps.setInt(2, vaultNumber);
-                ps.executeUpdate();
+        try (Connection conn = dataSource.getConnection()) {
+            try (PreparedStatement del = conn.prepareStatement(
+                "DELETE FROM `" + tablePrefix + "vaults` WHERE `uuid` = ? AND `vault_number` = ?")) {
+                del.setString(1, uuid.toString());
+                del.setInt(2, vaultNumber);
+                del.executeUpdate();
             }
-
-            String ins = "INSERT INTO `" + tablePrefix + "vaults` (`uuid`, `vault_number`, `slot`, `item_data`) VALUES (?,?,?,?)";
-            try (PreparedStatement ps = conn.prepareStatement(ins)) {
+            try (PreparedStatement ins = conn.prepareStatement(
+                "INSERT INTO `" + tablePrefix + "vaults` (`uuid`, `vault_number`, `slot`, `item_data`) VALUES (?,?,?,?)")) {
                 for (int i = 0; i < contents.length; i++) {
                     if (contents[i] != null) {
-                        ps.setString(1, uuid.toString());
-                        ps.setInt(2, vaultNumber);
-                        ps.setInt(3, i);
-                        ps.setString(4, ItemSerializer.serializeBase64(contents[i]));
-                        ps.addBatch();
+                        ins.setString(1, uuid.toString());
+                        ins.setInt(2, vaultNumber);
+                        ins.setInt(3, i);
+                        ins.setString(4, ItemSerializer.serializeBase64(contents[i]));
+                        ins.addBatch();
                     }
                 }
-                ps.executeBatch();
+                ins.executeBatch();
             }
-        } finally {
-            releaseConnection(conn);
         }
     }
 
     private ItemStack[] deleteFromMySQL(UUID uuid, int vaultNumber) throws Exception {
-        // Load items first, then delete
         ItemStack[] items = loadFromMySQL(uuid, vaultNumber, 54);
-        Connection conn = borrowConnection();
-        try {
-            String del = "DELETE FROM `" + tablePrefix + "vaults` WHERE `uuid` = ? AND `vault_number` = ?";
-            try (PreparedStatement ps = conn.prepareStatement(del)) {
-                ps.setString(1, uuid.toString());
-                ps.setInt(2, vaultNumber);
-                ps.executeUpdate();
-            }
-        } finally {
-            releaseConnection(conn);
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement del = conn.prepareStatement(
+                "DELETE FROM `" + tablePrefix + "vaults` WHERE `uuid` = ? AND `vault_number` = ?")) {
+            del.setString(1, uuid.toString());
+            del.setInt(2, vaultNumber);
+            del.executeUpdate();
         }
         return items;
-    }
-
-    // ── Connection pool ───────────────────────────────────────────────────────
-
-    private Connection borrowConnection() throws SQLException {
-        try {
-            Connection conn = connectionQueue.poll(5, TimeUnit.SECONDS);
-            if (conn == null) throw new SQLException("Connection pool timeout");
-            // Reconnect if stale
-            if (!conn.isValid(2)) {
-                ConfigManager cfg = plugin.getConfigManager();
-                String url = "jdbc:mysql://" + cfg.getMySQLHost() + ":" + cfg.getMySQLPort()
-                        + "/" + cfg.getMySQLDatabase() + "?" + cfg.getMySQLProps();
-                conn = DriverManager.getConnection(url, cfg.getMySQLUser(), cfg.getMySQLPass());
-            }
-            return conn;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // restore interrupt flag
-            throw new SQLException("Connection pool interrupted", e);
-        }
-    }
-
-    private void releaseConnection(Connection conn) {
-        if (conn != null) connectionQueue.offer(conn);
     }
 
     // ── Shutdown ──────────────────────────────────────────────────────────────
@@ -359,12 +299,11 @@ public class StorageManager {
         executor.shutdown();
         try {
             executor.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException ignored) {}
-
-        if (storageType.equals("MYSQL")) {
-            for (Connection conn : pool) {
-                try { conn.close(); } catch (Exception ignored) {}
-            }
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
         }
     }
 }
