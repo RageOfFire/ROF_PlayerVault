@@ -6,7 +6,6 @@
 
 [![Downloads](https://img.shields.io/github/downloads/RageOfFire/ROF_PlayerVault/total?style=flat-square&color=blue)](https://github.com/RageOfFire/ROF_PlayerVault/releases)
 [![Release](https://img.shields.io/github/v/release/RageOfFire/ROF_PlayerVault?style=flat-square&color=green)](https://github.com/RageOfFire/ROF_PlayerVault/releases/latest)
-[![Build](https://img.shields.io/github/actions/workflow/status/RageOfFire/ROF_PlayerVault/build.yml?style=flat-square)](https://github.com/RageOfFire/ROF_PlayerVault/actions)
 [![Commits](https://img.shields.io/github/commit-activity/m/RageOfFire/ROF_PlayerVault?style=flat-square)](https://github.com/RageOfFire/ROF_PlayerVault/commits/master)
 [![Stars](https://img.shields.io/github/stars/RageOfFire/ROF_PlayerVault?style=flat-square&color=yellow)](https://github.com/RageOfFire/ROF_PlayerVault/stargazers)
 [![Discord](https://img.shields.io/discord/752171524919918672?style=flat-square&color=5865F2&label=discord)](https://discord.gg/752171524919918672)
