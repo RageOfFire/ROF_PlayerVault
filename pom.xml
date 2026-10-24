@@ -18,17 +18,14 @@
     </properties>
 
     <repositories>
-        <!-- Spigot / Paper -->
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
-        <!-- Vault (Economy API) -->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </repository>
-        <!-- PlaceholderAPI -->
         <repository>
             <id>placeholderapi</id>
             <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
@@ -36,9 +33,7 @@
     </repositories>
 
     <dependencies>
-        <!-- Spigot API — compile against 1.12.2 so EntityPickupItemEvent is available.
-             The plugin still runs on 1.8.8+ because PickupListenerFactory checks
-             at runtime before registering EntityPickupListener. -->
+        <!-- Spigot API -->
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
@@ -62,24 +57,44 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- MySQL connector — PROVIDED, not shaded.
-             Spigot/Paper 1.16+ bundles the driver already.
-             On older servers, admins place the driver jar in /libs/.
-             We only shade HikariCP (the connection pool, ~130 KB). -->
+        <!-- HikariCP — connection pool (~130 KB shaded) -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>4.0.3</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!--
+            MySQL Connector/J — shaded but STRIPPED of heavy optional deps:
+            - protobuf   (~1.8 MB) — only needed for X Protocol (MySQL 8 extra feature)
+            - Google Failsafe / OpenTelemetry — telemetry, not needed in a plugin
+            Stripping these keeps the connector contribution to ~400 KB instead of ~2.5 MB.
+            On servers that already have the driver (Paper 1.16+) the classes are simply
+            ignored at load time — no conflict because we relocate the package.
+        -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <version>9.4.0</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- HikariCP — lightweight connection pool (~130 KB shaded).
-             Replaces our hand-rolled BlockingQueue pool with a battle-tested one. -->
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-            <version>4.0.3</version> <!-- last version targeting Java 8 -->
             <scope>compile</scope>
+            <exclusions>
+                <!-- Removes ~1.8 MB of protobuf (X Protocol only) -->
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <!-- Removes OpenTelemetry telemetry (~300 KB) -->
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <!-- Removes Failsafe (~80 KB) -->
+                <exclusion>
+                    <groupId>dev.failsafe</groupId>
+                    <artifactId>failsafe</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
@@ -106,20 +121,39 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <!-- Only shade HikariCP — mysql driver comes from the server -->
                             <relocations>
+                                <!-- Relocate HikariCP to avoid conflicts with other plugins -->
                                 <relocation>
                                     <pattern>com.zaxxer.hikari</pattern>
                                     <shadedPattern>me.rageoffire.rofplayervault.libs.hikari</shadedPattern>
                                 </relocation>
+                                <!-- Relocate MySQL driver to avoid conflicts with server's own driver -->
+                                <relocation>
+                                    <pattern>com.mysql</pattern>
+                                    <shadedPattern>me.rageoffire.rofplayervault.libs.mysql</shadedPattern>
+                                </relocation>
                             </relocations>
                             <filters>
+                                <!-- Strip signatures -->
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                                <!-- Strip unused MySQL classes to shrink jar further -->
+                                <filter>
+                                    <artifact>com.mysql:mysql-connector-j</artifact>
+                                    <excludes>
+                                        <!-- X DevAPI / X Protocol (requires protobuf, not used) -->
+                                        <exclude>com/mysql/cj/xdevapi/**</exclude>
+                                        <exclude>com/mysql/cj/protocol/x/**</exclude>
+                                        <!-- Telemetry / OpenTelemetry stubs -->
+                                        <exclude>com/mysql/cj/telemetry/**</exclude>
+                                        <!-- Unused charsets (keeps only UTF-8 and common ones) -->
+                                        <exclude>com/mysql/cj/jdbc/ha/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
