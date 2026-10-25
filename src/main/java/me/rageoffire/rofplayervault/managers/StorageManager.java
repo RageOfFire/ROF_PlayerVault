@@ -66,6 +66,13 @@ public class StorageManager {
         ConfigManager cfg = plugin.getConfigManager();
         tablePrefix = cfg.getMySQLPrefix();
 
+        // Ensure MySQL driver is on the classpath — download if needed
+        File libsFolder = new File(plugin.getDataFolder(), "libs");
+        if (!me.rageoffire.rofplayervault.utils.MySQLDriverLoader.ensureDriver(libsFolder, plugin.getLogger())) {
+            plugin.getLogger().severe("Cannot initialise MySQL — driver unavailable.");
+            return false;
+        }
+
         try {
             HikariConfig hikari = new HikariConfig();
             hikari.setJdbcUrl("jdbc:mysql://" + cfg.getMySQLHost() + ":" + cfg.getMySQLPort()
